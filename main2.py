@@ -1,6 +1,7 @@
+import os
+import importlib.util
 from game import Game
 import inspect
-from config import TEAM1, TEAM2
 
 def validate_module(module, name):
     attributes = dir(module)
@@ -42,12 +43,34 @@ def validate_module(module, name):
 
     return True
 
-team1_test_pass = False
-team2_test_pass = False
+def load_team_module(filepath):
+    spec = importlib.util.spec_from_file_location("team_module", filepath)
+    team_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(team_module)
+    return team_module
 
-team1_test_pass = validate_module(TEAM1, "TEAM 1") or team1_test_pass
-team2_test_pass = validate_module(TEAM2, "TEAM 2") or team2_test_pass
+def update_config(team1, team2):
+    with open('config.py', 'w') as f:
+        f.write(f"from teams import {team1},{team2}\n\n")
+        f.write(f"TEAM1 = {team1}\n")
+        f.write(f"TEAM2 = {team2}\n")
+        f.write("VALUE_ERROR = False\n")
 
-if team1_test_pass and team2_test_pass:
-    Game(TEAM1.troops,TEAM2.troops,TEAM1.team_name,TEAM2.team_name).run()
-    
+team_files = [f for f in os.listdir('teams') if f.endswith('.py') and f not in ['__init__.py', 'helper_function.py', 'troops_data.py']]
+team_files.sort()
+
+for i in range(len(team_files)):
+    for j in range(i + 1, len(team_files)):
+        team1 = team_files[i].replace('.py', '')
+        team2 = team_files[j].replace('.py', '')
+        
+        update_config(team1, team2)
+        
+        TEAM1 = load_team_module(f'teams/{team_files[i]}')
+        TEAM2 = load_team_module(f'teams/{team_files[j]}')
+        
+        team1_test_pass = validate_module(TEAM1, "TEAM 1")
+        team2_test_pass = validate_module(TEAM2, "TEAM 2")
+        
+        if team1_test_pass and team2_test_pass:
+            Game(TEAM1.troops, TEAM2.troops, TEAM1.team_name, TEAM2.team_name).run()

@@ -1,3 +1,4 @@
+import datetime
 import pygame
 import sys
 from scripts.utils import *
@@ -9,31 +10,34 @@ from scripts.dataflow import DataFlow
 import random
 from scripts.game_config import *
 
+
+win_state = None
+
 class Game:
     def __init__(self, troops1, troops2, team_name1, team_name2):
         pygame.init()
         pygame.font.init()
         pygame.display.set_caption('Code Royale')
 
-        self.arena_display_size = (ARENA_WIDTH,ARENA_HEIGHT)
-        self.side_display_size = ((FULL_WIDTH-MIDDLE_WIDTH)//2, FULL_HEIGHT)
-        self.tile_size = ARENA_WIDTH/12
-        self.middle_screen = pygame.Surface((MIDDLE_WIDTH,MIDDLE_HEIGHT))
-        self.screen = pygame.Surface((MIDDLE_WIDTH,MIDDLE_HEIGHT),pygame.SRCALPHA)
-        self.shadow_screen = pygame.Surface((MIDDLE_WIDTH,MIDDLE_HEIGHT),pygame.SRCALPHA)
+        self.arena_display_size = (ARENA_WIDTH, ARENA_HEIGHT)
+        self.side_display_size = ((FULL_WIDTH - MIDDLE_WIDTH) // 2, FULL_HEIGHT)
+        self.tile_size = ARENA_WIDTH / 12
+        self.middle_screen = pygame.Surface((MIDDLE_WIDTH, MIDDLE_HEIGHT))
+        self.screen = pygame.Surface((MIDDLE_WIDTH, MIDDLE_HEIGHT), pygame.SRCALPHA)
+        self.shadow_screen = pygame.Surface((MIDDLE_WIDTH, MIDDLE_HEIGHT), pygame.SRCALPHA)
         self.left_screen = pygame.Surface(self.side_display_size)
         self.right_screen = pygame.Surface(self.side_display_size)
-        self.main_screen = pygame.display.set_mode((FULL_WIDTH,EXTRA_HEIGHT),pygame.RESIZABLE)
+        self.main_screen = pygame.display.set_mode((FULL_WIDTH, EXTRA_HEIGHT), pygame.RESIZABLE)
 
         self.fps = FPS
         self.clock = pygame.time.Clock()
         self.game_counter = 0
         self.winner = None
         self.message = None
-        self.tower_size = 2.25*self.tile_size
-        towers_position = (ARENA_WIDTH/2,ARENA_HEIGHT)
+        self.tower_size = 2.25 * self.tile_size
+        towers_position = (ARENA_WIDTH / 2, ARENA_HEIGHT)
         self.assets = load_assets()
-        deploy_area = (0,self.arena_display_size[0],self.arena_display_size[1]/2,self.arena_display_size[1])
+        deploy_area = (0, self.arena_display_size[0], self.arena_display_size[1] / 2, self.arena_display_size[1])
 
         self.middle_map = Middle_Map(self.assets["middle_map"])
         """
@@ -48,21 +52,21 @@ class Game:
         random.shuffle(deployable_troops2)
         self.team1_script_test = True
         self.team2_script_test = True
-        self.tower1 = Tower("Tower 1", towers_position, self.assets,self.tower_size, deploy_area, self.screen, self.shadow_screen, self.middle_screen, deployable_troops1)
-        self.tower2 = Tower("Tower 2", convert_player2(towers_position,self.arena_display_size), self.assets ,self.tower_size, convert_player2_area(deploy_area,self.arena_display_size), self.screen, self.shadow_screen, self.middle_screen, deployable_troops2, troop2=True) # troop2 means you are player 2
+        self.tower1 = Tower("Tower 1", towers_position, self.assets, self.tower_size, deploy_area, self.screen, self.shadow_screen, self.middle_screen, deployable_troops1)
+        self.tower2 = Tower("Tower 2", convert_player2(towers_position, self.arena_display_size), self.assets, self.tower_size, convert_player2_area(deploy_area, self.arena_display_size), self.screen, self.shadow_screen, self.middle_screen, deployable_troops2, troop2=True) # troop2 means you are player 2
         self.tower1.oppTower = self.tower2
         self.tower1.oppTroops = self.tower2.myTroops
         self.tower2.oppTower = self.tower1
         self.tower2.oppTroops = self.tower1.myTroops
         self.data_provided1 = {}
         self.data_provided2 = {}
-    
+
     def render_game_screen(self):
         self.middle_map.render(self.middle_screen)
-        
+
         self.screen.fill((0, 0, 0, 0)) # clear screen
         self.shadow_screen.fill((0, 0, 0, 0)) # clear screen
-        
+
         if GAME_END_TIME > self.game_counter >= GAME_START_TIME:
             DataFlow.provide_data(self)
             DataFlow.deployment(self)
@@ -73,35 +77,57 @@ class Game:
         elif self.game_counter >= GAME_END_TIME:
             Decoration.outro_text(self)
 
-        self.main_screen.blit(self.middle_screen, ((FULL_WIDTH-MIDDLE_WIDTH)//2, 0))
-        self.main_screen.blit(self.shadow_screen, ((FULL_WIDTH-MIDDLE_WIDTH)//2, 0))
-        self.main_screen.blit(self.screen, ((FULL_WIDTH-MIDDLE_WIDTH)//2, 0))
-    
+        self.main_screen.blit(self.middle_screen, ((FULL_WIDTH - MIDDLE_WIDTH) // 2, 0))
+        self.main_screen.blit(self.shadow_screen, ((FULL_WIDTH - MIDDLE_WIDTH) // 2, 0))
+        self.main_screen.blit(self.screen, ((FULL_WIDTH - MIDDLE_WIDTH) // 2, 0))
+
     def render_left_screen(self):
         Decoration_Left.render_background(self)
         if GAME_END_TIME > self.game_counter >= GAME_START_TIME:
             Decoration_Left.render_screen(self)
         self.main_screen.blit(self.left_screen, (0, 0))
+
     def render_right_screen(self):
         Decoration_Right.render_background(self)
         if GAME_END_TIME > self.game_counter >= GAME_START_TIME:
-            Decoration_Right.render_screen(self)       
-        self.main_screen.blit(self.right_screen, ((FULL_WIDTH+MIDDLE_WIDTH)//2, 0))
+            Decoration_Right.render_screen(self)
+        self.main_screen.blit(self.right_screen, ((FULL_WIDTH + MIDDLE_WIDTH) // 2, 0))
 
     def run(self):
-        while True:
+        running = True
+        start_time = datetime.datetime.now()
+        while running:
             self.render_game_screen()
             self.render_left_screen()
             self.render_right_screen()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    running = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.fps = min(70,self.fps+5)
+                        self.fps = min(70, self.fps + 5)
                     if event.key == pygame.K_DOWN:
-                        self.fps = max(5,self.fps - 5)
+                        self.fps = max(5, self.fps - 5)
             pygame.display.update()
             self.clock.tick(self.fps)
             self.game_counter += 1
+            if self.game_counter > GAME_END_TIME:
+                running = False
+        end_time = datetime.datetime.now()
+        game_time = (end_time - start_time).total_seconds()
+        win_state = [self.message, self.winner]
+        remaining_health_tower1 = self.tower1.health
+        remaining_health_tower2 = self.tower2.health
+        print(win_state)
+        return {
+            "start_time": start_time,
+            "end_time": end_time,
+            "game_time": game_time,
+            "remaining_health_tower1": remaining_health_tower1,
+            "remaining_health_tower2": remaining_health_tower2,
+            "win_state": win_state,
+            "winner": self.winner
+        }
+
+    def reset(self, troops1, troops2, team_name1, team_name2):
+        self.__init__(troops1, troops2, team_name1, team_name2)
