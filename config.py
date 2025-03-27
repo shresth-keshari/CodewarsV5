@@ -1,5 +1,5 @@
-from team_files import aa,b
+from team_files import a,aa
 
-TEAM1 = aa
-TEAM2 = b
+TEAM1 = a
+TEAM2 = aa
 VALUE_ERROR = False

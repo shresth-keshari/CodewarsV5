@@ -1,10 +1,10 @@
 import random
 from teams.helper_function import Troops, Utils
 
-team_name = "byteme"
+team_name = "Pappe"
 troops = [
-    Troops.wizard, Troops.minion, Troops.knight, Troops.balloon,
-    Troops.dragon, Troops.skeleton, Troops.valkyrie, Troops.giant
+    Troops.wizard, Troops.minion, Troops.archer, Troops.musketeer,
+    Troops.dragon, Troops.skeleton, Troops.valkyrie, Troops.barbarian
 ]
 deploy_list = Troops([])
 team_signal = "h, Prince, Knight, Barbarian, Princess"
@@ -22,103 +22,74 @@ def deploy(arena_data: dict):
 
 def logic(arena_data: dict):
     global team_signal
+    troops_data = Troops.troops_data
     my_tower = arena_data["MyTower"]
     opp_troops = arena_data["OppTroops"]
-
+    
     # --- Update Team Signal ---
+    # Add new opponent troop names (avoid duplicates).
     for troop in opp_troops:
         current_names = [name.strip() for name in team_signal.split(",")] if team_signal else []
         if troop.name not in current_names:
             team_signal = team_signal + ", " + troop.name if team_signal else troop.name
+    # print(f"Team Signal: {team_signal}")
+    
+    # --- Analyze Opponent's Deck Composition ---
+    # Define opponent categories.
+    opponent_air = {"Minion", "Dragon", "Musketeer"}
+    opponent_ground = {"Prince", "Knight", "Barbarian", "Princess"}
+    
+    tokens = [token.strip() for token in team_signal.split(",") if token.strip() != "h"]
+    count_air = sum(1 for token in tokens if token in opponent_air)
+    count_ground = sum(1 for token in tokens if token in opponent_ground)
+    
+    if count_ground > count_air:
+        recommended_counter = "air"    # Counter ground with air units.
+    elif count_air > count_ground:
+        recommended_counter = "ground" # Counter air with ground units.
+    else:
+        recommended_counter = None     # No clear preference.
+    
+    # --- Score Our Troops (only from deployable troops) ---
+    deployable = my_tower.deployable_troops
+    # Define base scores and categories for our troops.
+    troop_data = {
+        Troops.wizard:    {"score": 3, "category": "air",    "name": "Wizard"},
+        Troops.minion:    {"score": 2, "category": "air",    "name": "Minion"},
+        Troops.archer:    {"score": 4, "category": "ground", "name": "Archer"},
+        Troops.musketeer:     {"score": 3, "category": "ground", "name": "Musketeer"},
+        Troops.dragon:    {"score": 5, "category": "air",    "name": "Dragon"},
+        Troops.skeleton:  {"score": 2, "category": "ground", "name": "Skeleton"},
+        Troops.valkyrie:   {"score": 4, "category": "air",    "name": "Valkyrie"},
+        Troops.barbarian: {"score": 3, "category": "ground", "name": "Barbarian"}
+    }
+    
+    bonus = 3  # Bonus for matching the recommended counter strategy.
+    best_troop = None
+    best_score = -1
+    
+    # Loop over our full troop list, but only consider those that are deployable.
+    for troop in troops:
+        if troop not in deployable:
+            continue
+        base = troop_data[troop]["score"]
+        cat = troop_data[troop]["category"]
+        score = base + (bonus if recommended_counter and cat == recommended_counter else 0)
+        if score > best_score:
+            best_score = score
+            best_troop = troop
 
-    # --- Troop Categories ---
-    tank_troops = {"Giant", "Knight", "Prince"}
-    swarm_troops = {"Barbarian", "Skeleton"}
-    support_troops = {"Wizard", "Musketeer", "Archer"}
-    exception_troops = {"Valkyrie", "Minions", "Balloon", "Baby Dragon"}
-
-    # --- Identify Enemy Strategy ---
-    enemy_tanks = [troop for troop in opp_troops if troop.name in tank_troops]
-    enemy_swarms = [troop for troop in opp_troops if troop.name in swarm_troops]
-    enemy_supports = [troop for troop in opp_troops if troop.name in support_troops]
-
-    # --- Check Available Defenders ---
-   # --- Check Available Defenders ---
-    deployable = my_tower.deployable_troops  # ✅ Fixed typo
-
-    # --- Defense Strategy ---
-    if enemy_tanks and enemy_supports:
-        # 🛡️ Tank + Support Defense
-        if "Valkyrie" in deployable and "Valkyrie" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Valkyrie"], enemy_supports[0].position))
-            if "Skeleton" in deployable and "Skeleton" in Troops.__dict__:
-                deploy_list.list_.append((Troops.__dict__["Skeleton"], enemy_tanks[0].position))
-            elif "Minions" in deployable and "Minions" in Troops.__dict__:
-                deploy_list.list_.append((Troops.__dict__["Minions"], enemy_tanks[0].position))
-        elif "Giant" in deployable and "Giant" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Giant"], (random_x(-20, 20), 0)))
-            if "Wizard" in deployable and "Wizard" in Troops.__dict__:
-                deploy_list.list_.append((Troops.__dict__["Wizard"], (random_x(-5, 5), 0)))
+    # --- Deployment Position ---
+    if best_troop is not None:
+        selected_category = troop_data[best_troop]["category"]
+        if selected_category == "air":
+            # Deploy air units further forward.
+            deploy_position = (random_x(-25, 25), 0)
         else:
-            deploy_list.list_.append((Troops.__dict__["Giant"], (random_x(-10, 10), 0)))
-            deploy_list.list_.append((Troops.__dict__["Balloon"], (random_x(-10, 10), 0)))
-
-    elif enemy_tanks and enemy_swarms:
-        # 🛡️ Tank + Swarm Defense
-        if "Valkyrie" in deployable and "Valkyrie" in Troops.__dict__:
-            centroid_x = sum(t.position[0] for t in enemy_swarms) // len(enemy_swarms)
-            centroid_y = sum(t.position[1] for t in enemy_swarms) // len(enemy_swarms)
-            deploy_list.list_.append((Troops.__dict__["Valkyrie"], (centroid_x, centroid_y)))
-        elif "Wizard" in deployable and "Wizard" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Wizard"], (random_x(-10, 10), 0)))
-        else:
-            deploy_list.list_.append((Troops.__dict__["Knight"], (random_x(-10, 10), 0)))
-            deploy_list.list_.append((Troops.__dict__["Minions"], (random_x(-5, 5), 0)))
-
-    elif enemy_swarms and enemy_supports:
-        # 🛡️ Swarm + Support Defense
-        if "Wizard" in deployable and "Wizard" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Wizard"], (random_x(-10, 10), 0)))
-        elif "Baby Dragon" in deployable and "Baby Dragon" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Baby Dragon"], (random_x(-10, 10), 0)))
-        elif "Giant" in deployable and "Giant" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Giant"], (random_x(-10, 10), 0)))
-            if "Knight" in deployable and "Knight" in Troops.__dict__:
-                deploy_list.list_.append((Troops.__dict__["Knight"], (random_x(-5, 5), 0)))
-
-    elif enemy_supports:
-        # 🛡️ Support Only Defense
-        if "Knight" in deployable and "Knight" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Knight"], enemy_supports[0].position))
-        elif "Giant" in deployable and "Giant" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Giant"], (random_x(-10, 10), 0)))
-        else:
-            print(deployable)
-            deploy_list.list_.append((Troops.__dict__["Wizard"], (random_x(-10, 10), 0)))
-
-    # --- Heavy Push Handling ---
-    enemy_push_from_back = any(troop.name in tank_troops for troop in opp_troops)
-    if enemy_push_from_back:
-        for troop in ["Giant", "Knight", "Wizard", "Baby Dragon"]:
-            if troop in deployable and troop in Troops.__dict__:
-                deploy_list.list_.append((Troops.__dict__[troop], (random_x(-10, 10), 0)))
-                return
-        if "Minions" in deployable and "Minions" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Minions"], (random_x(-10, 10), 0)))
-
-    # --- Failsafe Handling (Push if No Defenders) ---
-    if len(deploy_list.list_) == 0:
-        if {"Giant", "Balloon", "Wizard", "Baby Dragon"} <= set(deployable) and \
-        {"Giant", "Balloon", "Wizard", "Baby Dragon"} <= Troops.__dict__.keys():
-            deploy_list.list_.append((Troops.__dict__["Giant"], (random_x(-10, 10), 0)))
-            deploy_list.list_.append((Troops.__dict__["Balloon"], (random_x(-10, 10), 0)))
-            deploy_list.list_.append((Troops.__dict__["Baby Dragon"], (random_x(-10, 10), 0)))
-        elif "Minions" in deployable and "Minions" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Minions"], (random_x(-10, 10), 0)))
-
-    # --- Retaliation Handling ---
-    if any(t[0].name in {"Giant", "Knight", "Valkyrie"} for t in deploy_list.list_):
-        if "Baby Dragon" in deployable and "Baby Dragon" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Baby Dragon"], (random_x(-5, 5), 0)))
-        elif "Wizard" in deployable and "Wizard" in Troops.__dict__:
-            deploy_list.list_.append((Troops.__dict__["Wizard"], (random_x(-5, 5), 0)))
+            # Deploy ground units slightly closer for support.
+            deploy_position = (random_x(-10, 10), 0)
+        deploy_list.list_.append((best_troop, deploy_position))
+    else:
+        # Fallback: If no deployable troop meets criteria, deploy the first available troop.
+        if deployable:
+            deploy_list.list_.append((deployable[0], (0, 0)))
